@@ -1,67 +1,65 @@
 import click
-import subprocess
-import pymongo
+from ddsmdb.dbhandler import DBHandler
+import json
+import pprint
 
 @click.command()
-@click.option('--run/--no-run', default=None, help="run mongod with `--dbpath`")
+@click.option('--launch/--no-launch', default=True, help="run mongod with `--dbpath`")
 @click.option('--info/--no-info', default=False, help="the names of the databases")
-@click.option('--create', default=None, help="create a database, specify a name")
-@click.option('--delete', default=None, help="delete a database, specify a name")
-@click.option('--shutdown/--no-shutdown', default=None, help='shutdown the database server using `--dbpath`')
+@click.option('--create/--no-create', default=False, help="create a database")
+@click.option('--delete/--no-delete', default=False, help="delete a database")
+@click.option('--dbname', default=None, help="the name of the db")
+@click.option('--shutdown/--no-shutdown', default=False, help='shutdown the database server using `--dbpath`')
 @click.option('--dbpath', default=None, help='specify the dbpath to run or remove')
+@click.option('--verbose/--no-verbose', default=False, help="dump mongod output to stdout")
+@click.option('--port', default=None, type=int, help="the port number")
+@click.option('--host', default=None, help="the host")
+@click.option('--jsonfile', default=None, help="upload JSON data to database")
+@click.option('--view/--no-view', default=False, help="dump the data in the database to screeen")
 
-def handle(run, info, create, delete, shutdown, dbpath):
-    if run:
-        dbrun(dbpath)
+def handle(launch,
+           info,
+           create,
+           delete,
+           dbname,
+           shutdown,
+           dbpath,
+           verbose,
+           port,
+           host,
+           jsonfile,
+           view):
+    
+    handler = DBHandler(port=port, dbpath=dbpath, host=host, launch=launch, verbose=verbose)
 
-    client = pymongo.MongoClient('localhost', 27017)
-
+    if create or delete or jsonfile or view:
+        if not dbname:
+            dbname = click.prompt('enter a db name', type=str)
+            
     if create:
-        dbcreate(client, create)
+        handler.create(dbname)
 
     if info:
-        dbinfo(client)
+        info = handler.info()
+        click.echo(info)
         
     if delete:
-        dbdelete(client, delete)
+        handler.delete(dbname)
 
-    if shutdown:
-        dbshutdown(dbpath)
+    if jsonfile:
+        with open(jsonfile, 'r') as f:
+            data = json.load(f)
+        handler.create(dbname)
+        handler.set_data(dbname, data)
+
+    if view:
+        data = handler.get_data(dbname)
+        pp = pprint.PrettyPrinter(indent=2)
+        pp.pprint(data)
         
-def dbrun(dbpath):
-    command = ['mongod']
-    if dbpath:
-        command.append('--dbpath')
-        command.append(dbpath)
-    subprocess.Popen(command)
-
-def dbcreate(client, dbname):
-    db = client[dbname]
-    collection = db['setup-collection']
-    collection.insert({'setup-data' : True})
-    
-def dbinfo(client):
-    click.echo('list of databases')
-    for name in client.database_names():
-        click.echo('database: {0}'.format(name))
-
-def dbdelete(client, dbname):
-    if click.confirm('Do you want to delete the {0} database?'.format(dbname)):
-        client.drop_database(dbname)
-    click.echo('deleted the {0} database'.format(dbname))
-
-def dbsetup():
-    #Add some test data to the database
-    pass
-
-def dbshutdown(dbpath):
-    command = ['mongod']
-    command.append('--shutdown')
-    if dbpath:
-        command.append('--dbpath')
-        command.append(dbpath)
-    subprocess.call(command)
-
+    if shutdown:
+        handler.shutdown()
+        
 if __name__ == "__main__":
     handle()
     

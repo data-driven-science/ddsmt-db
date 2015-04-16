@@ -1,6 +1,7 @@
 import subprocess
 import pymongo
 import os
+import time
 
 class DBHandler(object):
     """
@@ -13,74 +14,78 @@ class DBHandler(object):
 
     >>> testport = 27018
     >>> dbname = 'test-db'
-    >>> db = DBHandler(port=testport)
+    >>> handler = DBHandler(port=testport, verbose=False)
 
     Create a new database, check that it exists, delete it and
     shutdown the daemon.
     
-    >>> db.create(dbname)
-    >>> assert 'test-db' in db.info()
-    >>> db.delete(dbname)
+    >>> handler.create(dbname)
+    >>> assert dbname in handler.info()
 
-    Shutdown the daemon.
-    
-    >>> db.shutdown()
+    Add some data to the database.
 
-    Start up the deamon.
+    >>> handler.set_data(dbname, {'my data' : 1})
+    >>> assert handler.get_data(dbname)[0]['my data'] == 1
 
-    >>> db0 = DBHandler(port=testport)
-    
-    Use a separate instance to access the database.
-
-    >>> db1 = DBHandler(port=testport)
-
-    Create a database.
-
-    >>> db1.create(dbname)
-    >>> db1.append_data(dbname, {'my-data' : 1})
-    >>> print db.get_data()
-    
     """
-    def __init__(self, port=27017, dbpath=None, host='localhost'):
-        
+    def __init__(self, port=None, dbpath=None, host=None, launch=True, verbose=False):
         if not dbpath:
             dbpath = os.getenv("MONGO_DBPATH", None)
-        try:
-            self.client = pymongo.MongoClient(host, port)
-        except pymongo.errors.ConnectionFailure:
-            self.launch(port=port, dbpath=dbpath)
-            self.client = pymongo.MongoClient(host, port)
+        if launch:
+            self.launch(port=port, dbpath=dbpath, verbose=verbose)
+        if host is None:
+            host = 'localhost'
+        for count in range(10, 0, -1):
+            try:
+                self.client = pymongo.MongoClient(host, port)
+            except pymongo.errors.ConnectionFailure:
+                if count == 1:
+                    raise
+                time.sleep(5)
+            else:
+                break
+            
         self.dbpath = dbpath
-        self.collection = 'setup-collection'            
+        self.verbose = verbose
         
-    def launch(self, port=27017, dbpath=None):
+    def launch(self, port=None, dbpath=None, verbose=False):
         command = ['mongod']
         if dbpath:
             command.append('--dbpath')
             command.append(dbpath)
-        command.append('--port')
-        command.append(str(port))
-        subprocess.Popen(command)
+        if port:
+            command.append('--port')
+            command.append(str(port))
+        if verbose:
+            stdout = None
+        else:
+            stdout = open(os.devnull, 'w')
+        subprocess.Popen(command, stdout=stdout)
 
     def create(self, dbname):
         db = self.client[dbname]
-        collection = db[self.collection]
-        collection.insert({'setup-data' : True})
-    
+        self.delete(dbname)
+        db = self.client[dbname]
+        collection = db.test
+        collection.insert({})
+        collection.drop()
+        
     def info(self):
         return self.client.database_names()
 
     def delete(self, dbname):
         self.client.drop_database(dbname)
 
-    def append_data(self, dbname, data):
+    def set_data(self, dbname, data):
         db = self.client[dbname]
-        collection = db[self.collection]
+        collection = db.test
+        collection.drop()
+        collection = db.test
         collection.insert(data)
-
+            
     def get_data(self, dbname):
         db = self.client[dbname]
-        return db[self.collection].get()
+        return list(db.test.find())
         
     def shutdown(self):
         command = ['mongod']
@@ -88,5 +93,35 @@ class DBHandler(object):
         if self.dbpath:
             command.append('--dbpath')
             command.append(self.dbpath)
-        subprocess.call(command)
+        if self.verbose:
+            stdout = None
+        else:
+            stdout = open(os.devnull, 'w')
+        subprocess.Popen(command, stdout=stdout)
 
+def test(): 
+    """
+    Load a small json file and then check that the data is in the
+    database. The test needs the check that a JSON object that is a
+    list is read into the database correctly and extracted correctly.
+    """
+    
+    import json
+    base = os.path.split(__file__)[0]
+    filepath = os.path.join(base, 'data', 'small.json')
+    with open(filepath, 'r') as f:
+        data = json.load(f)
+
+    testport = 27018
+    dbname = 'test-db'
+    handler = DBHandler(port=testport, verbose=False)
+
+    handler.create(dbname)
+    handler.set_data(dbname, data)
+    new_data = handler.get_data(dbname)
+
+
+    assert data == new_data
+
+    
+    
