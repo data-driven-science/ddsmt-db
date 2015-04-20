@@ -35,7 +35,7 @@ class DBHandler(object):
             self.launch(port=port, dbpath=dbpath, verbose=verbose)
         if host is None:
             host = 'localhost'
-        for count in range(10, 0, -1):
+        for count in range(4, 0, -1):
             try:
                 self.client = pymongo.MongoClient(host, port)
             except pymongo.errors.ConnectionFailure:
@@ -99,29 +99,4 @@ class DBHandler(object):
             stdout = open(os.devnull, 'w')
         subprocess.Popen(command, stdout=stdout)
 
-def test(): 
-    """
-    Load a small json file and then check that the data is in the
-    database. The test needs the check that a JSON object that is a
-    list is read into the database correctly and extracted correctly.
-    """
-    
-    import json
-    base = os.path.split(__file__)[0]
-    filepath = os.path.join(base, 'data', 'small.json')
-    with open(filepath, 'r') as f:
-        data = json.load(f)
-
-    testport = 27018
-    dbname = 'test-db'
-    handler = DBHandler(port=testport, verbose=False)
-
-    handler.create(dbname)
-    handler.set_data(dbname, data)
-    new_data = handler.get_data(dbname)
-
-
-    assert data == new_data
-
-    
     

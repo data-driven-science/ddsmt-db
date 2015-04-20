@@ -29,7 +29,10 @@ def handle(launch,
            host,
            jsonfile,
            view):
-    
+
+    if shutdown:
+        launch = False
+        
     handler = DBHandler(port=port, dbpath=dbpath, host=host, launch=launch, verbose=verbose)
 
     if create or delete or jsonfile or view:

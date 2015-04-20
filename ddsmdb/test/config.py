@@ -6,14 +6,14 @@ SECRET_KEY = '33stanlake#'
 
 DEBUG = True
 TESTING = True
-LIVESERVER_PORT = 5000
+LIVESERVER_PORT = 5200
 
 APP_TITLE = 'Data Driven Simulation Management Database'
 
 VERSION = '0.1-dev'
 
 MONGODB_SETTINGS = {
-    'db': 'ddsm-integrate',
+    'db': 'ddsm-test',
     'host': 'localhost',
-    'port': 27017
+    'port': 27018
 }
