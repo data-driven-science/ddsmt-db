@@ -12,8 +12,9 @@ class DBHandler(object):
     
     Start up the Mongo deamon and create a connection.
 
-    >>> testport = 27018
-    >>> dbname = 'test-db'
+    >>> from test import config
+    >>> testport = config.MONGODB_SETTINGS['port']
+    >>> dbname = config.MONGODB_SETTINGS['db']
     >>> handler = DBHandler(port=testport, verbose=False)
 
     Create a new database, check that it exists, delete it and

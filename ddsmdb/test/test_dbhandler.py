@@ -1,5 +1,8 @@
 import os
 from ddsmdb.dbhandler import DBHandler
+import json
+from . import config
+
 
 def test(): 
     """
@@ -8,14 +11,15 @@ def test():
     list is read into the database correctly and extracted correctly.
     """
     
-    import json
+
     base = os.path.split(__file__)[0]
     filepath = os.path.join(base, os.pardir, 'data', 'test.json')
     with open(filepath, 'r') as f:
         data = json.load(f)
 
-    testport = 27018
-    dbname = 'test-db'
+    testport = config.MONGODB_SETTINGS['port']
+    dbname = config.MONGODB_SETTINGS['db']
+
     handler = DBHandler(port=testport, verbose=False)
 
     handler.create(dbname)
