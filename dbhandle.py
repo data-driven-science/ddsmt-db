@@ -1,4 +1,5 @@
 import click
+
 from ddsmdb.dbhandler import DBHandler
 import json
 import pprint
