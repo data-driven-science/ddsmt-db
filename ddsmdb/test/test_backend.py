@@ -1,22 +1,15 @@
 from ddsmdb.common.core import setup_app
-from flask.ext.testing import LiveServerTestCase
-import twill
+from ddsmdb.dbhandler import DBHandler
+from flask.ext.testing import TestCase
+from flask.ext.testing import Twill
+import config
 
-class DatabaseTest(LiveServerTestCase):
-
+class DatabaseTest(TestCase):
     def create_app(self):
-        try:
-            browser = twill.get_browser()
-            browser.go("http://localhost:5200/")
-            app = setup_app(__name__, 'ddsmdb.test.integrate')
-            app.config['LIVESERVER_PORT'] = 5210
-            app.config['TESTING'] = True
-            app.config['MONGODB_SETTINGS'] = {'db': 'ddsm-integrate','host': 'localhost','port': 27017}
-        except:
-            app = setup_app(__name__, 'ddsmdb.test.integrate')
-            app.config['LIVESERVER_PORT'] = 5200
-            app.config['TESTING'] = True
-            app.config['MONGODB_SETTINGS'] = {'db': 'ddsm-integrate','host': 'localhost','port': 27017}
+        testport = config.MONGODB_SETTINGS['port']
+        testhost = config.MONGODB_SETTINGS['host']
+        self.handler =  DBHandler(port=testport, host=testhost)
+        app = setup_app(__name__, 'ddsmdb.test.config')
         return app
 
     def setUp(self):
@@ -24,14 +17,18 @@ class DatabaseTest(LiveServerTestCase):
         print "Supposed to setup the testcase."
         print "Which probably means to push some testing records in the database."
 
-    def test_Database(self):
-
-    	print "This is a test to check that the api endpoints are working properly."
-        browser = twill.get_browser()
-        browser.go("http://localhost:27017/")
-        self.assertTrue(browser.get_code() in (200, 201))
+    def test_db(self):
+        """
+        Test that the database endpoints are available.
+        """
+        t = Twill(self.app, host='localhost', port=27018)
+        t.browser.go(t.url("/"))
+        self.assertTrue(t.browser.get_code() in (200, 201))
 
     def tearDown(self):
+        dbname = config.MONGODB_SETTINGS['db']
+        self.handler.delete(dbname)
+        self.handler.client.close()
         del self.app
-        print "Supposed to tear down the testcase."
-        print "Which most likely means to clear the database of all records."
+
+
